@@ -2235,6 +2235,7 @@ def load(operator, context, filepath="",
 
     import os
     import time
+    from collections import OrderedDict
     from bpy_extras.io_utils import axis_conversion
 
     from . import parse_fbx
@@ -2283,7 +2284,7 @@ def load(operator, context, filepath="",
         texture_cache = {}
 
     # Tables: (FBX_byte_id -> [FBX_data, None or Blender_datablock])
-    fbx_table_nodes = {}
+    fbx_table_nodes = OrderedDict()
 
     if use_alpha_decals:
         material_decals = set()
@@ -2704,7 +2705,6 @@ def load(operator, context, filepath="",
 
     # We can handle shapes.
     blend_shape_channels = {}  # We do not need Shapes themselves, but keyblocks, for anim.    
-    temp_blen_read_shape_args = {}    
 
     def _():
         fbx_tmpl = fbx_template_get((b'Geometry', b'KFbxShape'))
@@ -2748,30 +2748,8 @@ def load(operator, context, filepath="",
                         meshes.append((bl_mdata, objects))
                     # BlendShape deformers are only here to connect BlendShapeChannels to meshes, nothing else to do.
                 # keyblocks is a list of tuples (mesh, keyblock) matching that shape/blendshapechannel, for animation.
-                # keyblocks = blen_read_shape(fbx_tmpl, fbx_sdata, fbx_bcdata, meshes, scene)         
-                # blend_shape_channels[bc_uuid] = keyblocks
-
-                temp_blen_read_shape_args[bc_uuid] = (fbx_sdata, fbx_bcdata, meshes)
-    _(); del _
-        
-    def _():
-        shape_names_list = []
-        elem_tree_rest = [elem_root]
-        while len(elem_tree_rest) != 0:
-            head_node = elem_tree_rest[0]
-            if head_node.id == b'Geometry' and len(head_node.props) == 3 and head_node.props[2] == b'Shape' and head_node.props[1] not in shape_names_list:
-                shape_names_list.append(head_node.props[1])        
-
-            elem_tree_rest = elem_tree_rest[1:] + head_node.elems
-    
-        fbx_tmpl = fbx_template_get((b'Geometry', b'KFbxShape'))
-
-        # HACK: dosen't detect same name meshes, process ALL MESHES
-        # TODO: check mesh information        
-        for shape_name in shape_names_list:
-            for bc_uuid, (fbx_sdata, fbx_bcdata, meshes) in temp_blen_read_shape_args.items():
-                if shape_name == fbx_sdata.props[1]:                                                              
-                    blend_shape_channels[bc_uuid] = blen_read_shape(fbx_tmpl, fbx_sdata, fbx_bcdata, meshes, scene)
+                keyblocks = blen_read_shape(fbx_tmpl, fbx_sdata, fbx_bcdata, meshes, scene)         
+                blend_shape_channels[bc_uuid] = keyblocks              
     _(); del _
 
     if use_anim:
